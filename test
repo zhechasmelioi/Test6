@@ -1,0 +1,84 @@
+import retrofit2.Call;
+import retrofit2.http.Body;
+import retrofit2.http.Header;
+import retrofit2.http.Headers;
+import retrofit2.http.POST;
+
+public interface ApiService {
+    @Headers({
+            "Content-Type: application/json",
+            "Custom-Header-1: value1",
+            "Custom-Header-2: value2"
+    })
+    @POST("login")
+    Call<LoginResponse> login(@Header("Authorization") String authorization, @Body LoginRequest request);
+}
+
+
+
+
+
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+public class LoginActivity extends AppCompatActivity {
+
+    private ApiService apiService;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        // Initialize Retrofit
+        Retrofit retrofit = new Retrofit.Builder()
+            .baseUrl("https://your.api.base.url/") // Replace this with your actual API base URL
+            .addConverterFactory(GsonConverterFactory.create())
+            .build();
+
+        // Create an instance of the ApiService interface
+        apiService = retrofit.create(ApiService.class);
+
+        // Find and set onClickListener for your login button
+        Button loginButton = findViewById(R.id.login_button);
+        loginButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Retrieve username and password from your EditText fields
+                String username = usernameEditText.getText().toString();
+                String password = passwordEditText.getText().toString();
+
+                // Create a new LoginRequest object
+                LoginRequest request = new LoginRequest(username, password);
+
+                // Prepare authorization header
+                String credentials = "username:password"; // Replace with your credentials
+                String base64Credentials = Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP);
+                String authorization = "Basic " + base64Credentials;
+
+                // Call the login method of the ApiService with the authorization header
+                Call<LoginResponse> call = apiService.login(authorization, request);
+                call.enqueue(new Callback<LoginResponse>() {
+                    @Override
+                    public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
+                        if (response.isSuccessful()) {
+                            // Handle successful login response
+                            LoginResponse loginResponse = response.body();
+                            // Proceed to the next activity or update UI accordingly
+                        } else {
+                            // Handle unsuccessful login response
+                            // Extract error information from the response if needed
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<LoginResponse> call, Throwable t) {
+                        // Handle network errors or other failures
+                    }
+                });
+            }
+        });
+    }
+}
