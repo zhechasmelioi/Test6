@@ -1,0 +1,75 @@
+import android.content.Context;
+import org.json.JSONObject;
+import org.json.JSONException;
+import java.io.IOException;
+import java.io.InputStream;
+
+public class BiometricErrorUtil {
+
+    // Function to read JSON file from assets folder
+    public static JSONObject loadJSONFromAsset(Context context) {
+        String json = null;
+        try {
+            InputStream is = context.getAssets().open("biometric_errors.json");
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            is.close();
+            json = new String(buffer, "UTF-8");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return null;
+        }
+        try {
+            return new JSONObject(json);
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+}
+
+
+
+
+
+import org.json.JSONObject;
+import android.content.Context;
+import android.widget.Toast;
+
+public class YourActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Example onClick function
+        findViewById(R.id.biometric_button).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                JSONObject errors = BiometricErrorUtil.loadJSONFromAsset(YourActivity.this);
+
+                if (errors != null) {
+                    try {
+                        // Simulating biometric login
+                        if (biometricHardwareUnavailable()) {
+                            Toast.makeText(YourActivity.this, errors.getString("hardware_unavailable"), Toast.LENGTH_SHORT).show();
+                        } else if (invalidBiometricCredentials()) {
+                            Toast.makeText(YourActivity.this, errors.getString("invalid_credentials"), Toast.LENGTH_SHORT).show();
+                        } else if (connectionError()) {
+                            Toast.makeText(YourActivity.this, errors.getString("connection_error"), Toast.LENGTH_SHORT).show();
+                        } else {
+                            // Proceed with login
+                        }
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    Toast.makeText(YourActivity.this, "Error loading error messages", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+}
+
