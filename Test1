@@ -1,0 +1,112 @@
+public class LiteralsManager {
+    private static LiteralsManager instance;
+    private JSONObject literals;
+
+    private LiteralsManager(Context context, String fileName) throws IOException, JSONException {
+        literals = loadJSONFromAsset(context, fileName);
+    }
+
+    public static LiteralsManager getInstance(Context context, String fileName) throws JSONException, IOException {
+        if (instance == null) {
+            instance = new LiteralsManager(context, fileName);
+        }
+        return instance;
+    }
+
+    public String getLiteral(String key) throws JSONException {
+        return literals.getString(key);
+    }
+
+    public void setLiterals(JSONObject newLiterals) {
+        literals = newLiterals;
+    }
+
+    private JSONObject loadJSONFromAsset(Context context, String fileName) {
+        String json;
+        JSONObject jsonObject = null;
+        try {
+            InputStream is = context.getAssets().open(fileName);
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            is.close();
+            json = new String(buffer, "UTF-8");
+            jsonObject = new JSONObject(json);
+        } catch (IOException | JSONException ex) {
+            ex.printStackTrace();
+        }
+        return jsonObject;
+    }
+}
+
+
+
+
+public class LoginActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+        
+        // Example usage
+        try {
+            LiteralsManager literalsManager = LiteralsManager.getInstance(this, "biometric_errors.json");
+            // Do something with literalsManager
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void UpdateLanguage(JSONObject language) throws JSONException {
+        LiteralsManager literalsManager = LiteralsManager.getInstance(this, "biometric_errors.json");
+        literalsManager.setLiterals(language);
+
+        // Update the UI elements
+        welcomeMsg.setText(literalsManager.getLiteral("welcome_message"));
+        setUpBanking.setText(literalsManager.getLiteral("branchAndAtmLocator"));
+
+        // Save language preference
+        SharedPreferences LangsharedPreferences = getSharedPreferences("LangSharedPref", MODE_PRIVATE);
+        SharedPreferences.Editor myEdit1 = LangsharedPreferences.edit();
+        myEdit1.putString("Language", language.toString());
+        myEdit1.apply();
+
+        // Update the current fragment's language without replacing it
+        Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.parentContainer);
+        if (currentFragment instanceof UpdatableLanguageFragment) {
+            ((UpdatableLanguageFragment) currentFragment).updateLanguage(language);
+        }
+    }
+
+    // Interface to be implemented by fragments to support language updates
+    public interface UpdatableLanguageFragment {
+        void updateLanguage(JSONObject language) throws JSONException;
+    }
+}
+
+
+
+
+
+public class UsernameFragment extends Fragment implements LoginActivity.UpdatableLanguageFragment {
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_username, container, false);
+        // Initialize your views here
+        return view;
+    }
+
+    @Override
+    public void updateLanguage(JSONObject language) throws JSONException {
+        LiteralsManager literalsManager = LiteralsManager.getInstance(getContext(), "biometric_errors.json");
+        literalsManager.setLiterals(language);
+        
+        TextView welcomeMsg = getView().findViewById(R.id.welcomeMsg);
+        welcomeMsg.setText(literalsManager.getLiteral("welcome_message"));
+        
+        // Similarly, update other views as needed
+    }
+}
+
