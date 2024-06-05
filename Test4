@@ -1,0 +1,48 @@
+import android.os.Bundle;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.FragmentManager;
+
+public class MainActivity extends AppCompatActivity {
+
+    private FragmentManager fragmentManager;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        fragmentManager = getSupportFragmentManager();
+
+        // Check if the activity is being restored from a previous state
+        if (savedInstanceState == null) {
+            // If not, add the default fragment
+            addDefaultFragment();
+        }
+
+        // Perform action to switch to Fragment A or Fragment B
+        // For example, call a method like showFragmentA() or showFragmentB() based on user action
+    }
+
+    private void addDefaultFragment() {
+        // Add your default fragment here
+        fragmentManager.beginTransaction()
+                .add(R.id.fragment_container, new DefaultFragment())
+                .commit();
+    }
+
+    private void showFragmentA() {
+        // Replace the current fragment with Fragment A
+        fragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, new FragmentA())
+                .addToBackStack(null) // Optional: add to back stack for fragment navigation
+                .commit();
+    }
+
+    private void showFragmentB() {
+        // Replace the current fragment with Fragment B
+        fragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, new FragmentB())
+                .addToBackStack(null) // Optional: add to back stack for fragment navigation
+                .commit();
+    }
+}
