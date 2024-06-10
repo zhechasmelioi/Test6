@@ -1,0 +1,52 @@
+include ':app'
+
+// Include React Native dependency
+include ':react-native'
+project(':react-native').projectDir = new File(rootProject.projectDir, '../node_modules/react-native/android')
+
+// Include your React Native app module
+include ':your-react-native-app-module'
+project(':your-react-native-app-module').projectDir = new File(rootProject.projectDir, '../your-react-native-app/your-react-native-app-module')
+
+
+implementation project(':react-native')
+implementation project(':your-react-native-app-module')
+
+
+import com.facebook.react.ReactActivity;
+
+public class MainActivity extends ReactActivity {
+    @Override
+    protected String getMainComponentName() {
+        return "YourReactNativeAppModuleName"; // Replace with your React Native app module name
+    }
+}
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <com.facebook.react.ReactRootView
+        android:id="@+id/reactRootView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</RelativeLayout>
+
+
+import React from 'react';
+import { Text, View } from 'react-native';
+
+const App = () => {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>Hello from React Native!</Text>
+    </View>
+  );
+};
+
+export default App;
