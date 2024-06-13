@@ -1,0 +1,154 @@
+package com.example.nativeapp;
+
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+
+public class MyModule extends ReactContextBaseJavaModule {
+    private static ReactApplicationContext reactContext;
+
+    MyModule(ReactApplicationContext context) {
+        super(context);
+        reactContext = context;
+    }
+
+    @Override
+    public String getName() {
+        return "MyModule";
+    }
+
+    @ReactMethod
+    public void sendDataToReactNative(String message) {
+        WritableMap params = Arguments.createMap();
+        params.putString("message", message);
+        sendEvent(reactContext, "onDataReceived", params);
+    }
+
+    private void sendEvent(ReactApplicationContext reactContext, String eventName, WritableMap params) {
+        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+    }
+}
+
+package com.example.nativeapp;
+
+import com.facebook.react.ReactPackage;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.NativeModule;
+import com.facebook.react.uimanager.ViewManager;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class MyPackage implements ReactPackage {
+    @Override
+    public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+        List<NativeModule> modules = new ArrayList<>();
+        modules.add(new MyModule(reactContext));
+        return modules;
+    }
+
+    @Override
+    public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+        return Collections.emptyList();
+    }
+}
+
+import com.example.nativeapp.MyPackage;  // Add this import
+
+@Override
+protected List<ReactPackage> getPackages() {
+    @SuppressWarnings("UnnecessaryLocalVariable")
+    List<ReactPackage> packages = new PackageList(this).getPackages();
+    packages.add(new MyPackage());  // Add this line
+    return packages;
+}
+
+package com.example.nativeapp;
+
+import android.os.Bundle;
+import com.facebook.react.ReactActivity;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReactInstanceManager;
+
+public class ReactNativeActivity extends ReactActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Send data to React Native
+        ReactInstanceManager reactInstanceManager = getReactNativeHost().getReactInstanceManager();
+        reactInstanceManager.addReactInstanceEventListener(new ReactInstanceManager.ReactInstanceEventListener() {
+            @Override
+            public void onReactContextInitialized(ReactContext context) {
+                MyModule myModule = context.getNativeModule(MyModule.class);
+                myModule.sendDataToReactNative("Hello from Android!");
+            }
+        });
+    }
+
+    @Override
+    protected String getMainComponentName() {
+        return "MyProject";
+    }
+}
+
+import React, { useEffect, useState } from 'react';
+import { AppRegistry, StyleSheet, Text, View, NativeEventEmitter, NativeModules } from 'react-native';
+
+// Main component
+class HelloWorld extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      message: ''
+    };
+  }
+
+  componentDidMount() {
+    const eventEmitter = new NativeEventEmitter(NativeModules.MyModule);
+    this.eventListener = eventEmitter.addListener('onDataReceived', (event) => {
+      this.setState({ message: event.message });
+    });
+  }
+
+  componentWillUnmount() {
+    if (this.eventListener) {
+      this.eventListener.remove();
+    }
+  }
+
+  render() {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.hello}>Hello, World from React Native</Text>
+        <Text style={styles.message}>{this.state.message}</Text>
+      </View>
+    );
+  }
+}
+
+// Styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hello: {
+    fontSize: 20,
+    textAlign: 'center',
+    margin: 10,
+  },
+  message: {
+    fontSize: 20,
+    textAlign: 'center',
+    margin: 10,
+  }
+});
+
+// Register the main component
+AppRegistry.registerComponent("MyProject", () => HelloWorld);
