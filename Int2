@@ -1,0 +1,201 @@
+package com.example.nativeapp;
+
+import android.content.Intent;
+import android.os.Bundle;
+import com.facebook.react.ReactActivity;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReactInstanceManager;
+
+public class ReactNativeActivity extends ReactActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        String message = getIntent().getStringExtra("message");
+
+        ReactInstanceManager reactInstanceManager = getReactNativeHost().getReactInstanceManager();
+        reactInstanceManager.addReactInstanceEventListener(new ReactInstanceManager.ReactInstanceEventListener() {
+            @Override
+            public void onReactContextInitialized(ReactContext context) {
+                MyModule myModule = context.getNativeModule(MyModule.class);
+                myModule.sendDataToReactNative(message);
+            }
+        });
+
+        if (reactInstanceManager.hasStartedCreatingInitialContext()) {
+            ReactContext currentContext = reactInstanceManager.getCurrentReactContext();
+            if (currentContext != null) {
+                MyModule myModule = currentContext.getNativeModule(MyModule.class);
+                myModule.sendDataToReactNative(message);
+            }
+        }
+    }
+
+    @Override
+    protected String getMainComponentName() {
+        return "MyProject";
+    }
+
+    public void navigateBackToMainActivity(String message) {
+        Intent intent = new Intent();
+        intent.putExtra("messageFromReactNative", message);
+        setResult(RESULT_OK, intent);
+        finish();
+    }
+}
+
+
+package com.example.nativeapp;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.TextView;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_CODE = 1;
+    private TextView textView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        textView = findViewById(R.id.textView);
+        Button button = findViewById(R.id.launchReactNativeButton);
+
+        button.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ReactNativeActivity.class);
+            intent.putExtra("message", "Hello from MainActivity!");
+            startActivityForResult(intent, REQUEST_CODE);
+        });
+
+        // Check if there's data from React Native
+        if (getIntent().hasExtra("messageFromReactNative")) {
+            String message = getIntent().getStringExtra("messageFromReactNative");
+            textView.setText(message);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
+            String message = data.getStringExtra("messageFromReactNative");
+            textView.setText(message);
+        }
+    }
+}
+
+
+import React, { useEffect, useState } from 'react';
+import { AppRegistry, StyleSheet, Text, View, NativeEventEmitter, NativeModules, Button } from 'react-native';
+
+const HelloWorld = () => {
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const eventEmitter = new NativeEventEmitter(NativeModules.MyModule);
+    const eventListener = eventEmitter.addListener('onDataReceived', (event) => {
+      setMessage(event.message);
+    });
+
+    return () => {
+      eventListener.remove();
+    };
+  }, []);
+
+  const navigateToMain = () => {
+    NativeModules.MyModule.sendDataToMainActivity("Hello from React Native!");
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.hello}>Hello, World from React Native</Text>
+      <Text style={styles.message}>{message}</Text>
+      <Button title="Navigate to Main" onPress={navigateToMain} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hello: {
+    fontSize: 20,
+    textAlign: 'center',
+    margin: 10,
+  },
+  message: {
+    fontSize: 20,
+    textAlign: 'center',
+    margin: 10,
+  }
+});
+
+AppRegistry.registerComponent("MyProject", () => HelloWorld);
+
+
+package com.example.nativeapp;
+
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+
+public class MyModule extends ReactContextBaseJavaModule {
+    private static ReactApplicationContext reactContext;
+
+    MyModule(ReactApplicationContext context) {
+        super(context);
+        reactContext = context;
+    }
+
+    @Override
+    public String getName() {
+        return "MyModule";
+    }
+
+    @ReactMethod
+    public void sendDataToReactNative(String message) {
+        WritableMap params = Arguments.createMap();
+        params.putString("message", message);
+        sendEvent(reactContext, "onDataReceived", params);
+    }
+
+    @ReactMethod
+    public void sendDataToMainActivity(String message) {
+        ReactNativeActivity activity = (ReactNativeActivity) getCurrentActivity();
+        if (activity != null) {
+            activity.navigateBackToMainActivity(message);
+        }
+    }
+
+    private void sendEvent(ReactApplicationContext reactContext, String eventName, WritableMap params) {
+        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+    }
+}
+
+
+import com.example.nativeapp.MyPackage;  // Add this import
+
+@Override
+protected List<ReactPackage> getPackages() {
+    @SuppressWarnings("UnnecessaryLocalVariable")
+    List<ReactPackage> packages = new PackageList(this).getPackages();
+    packages.add(new MyPackage());  // Add this line
+    return packages;
+}
