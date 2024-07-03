@@ -1,0 +1,629 @@
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognitionListener;
+import android.content.Context;
+import android.util.Log;
+import android.os.Bundle;
+import java.util.ArrayList;
+
+public class SpeechRecognitionHelper {
+
+    private Context context;
+    private SpeechRecognizer speechRecognizer;
+
+    public SpeechRecognitionHelper(Context context) {
+        this.context = context;
+        initSpeechRecognizer();
+    }
+
+    private void initSpeechRecognizer() {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context);
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {}
+
+                @Override
+                public void onBeginningOfSpeech() {}
+
+                @Override
+                public void onRmsChanged(float rmsdB) {}
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {}
+
+                @Override
+                public void onEndOfSpeech() {}
+
+                @Override
+                public void onError(int error) {}
+
+                @Override
+                public void onResults(Bundle results) {
+                    ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (matches != null && matches.size() > 0) {
+                        String spokenText = matches.get(0); // Assuming first result is the most relevant
+                        handleVoiceCommand(spokenText);
+                    }
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {}
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {}
+            });
+        }
+    }
+
+    public void startListening() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        speechRecognizer.startListening(intent);
+    }
+
+    private void handleVoiceCommand(String command) {
+        // Handle the command, e.g., navigate based on deep linking
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        if ("go to accounts".equals(command.toLowerCase())) {
+            intent.setData(Uri.parse("myapp://accounts")); // Replace "myapp" with your app's deep linking scheme
+        } else if ("open profile".equals(command.toLowerCase())) {
+            intent.setData(Uri.parse("myapp://profile"));
+        }
+        context.startActivity(intent);
+    }
+
+    public void stopListening() {
+        if (speechRecognizer != null) {
+            speechRecognizer.stopListening();
+        }
+    }
+
+    public void destroy() {
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+    }
+}
+
+
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.util.Log;
+
+public class ShakeDetector implements SensorEventListener {
+    private static final String TAG = "ShakeDetector";
+    private static final float SHAKE_THRESHOLD_GRAVITY = 2.7F; // adjust as needed
+    private static final int SHAKE_SLOP_TIME_MS = 500;
+    private static final int SHAKE_COUNT_RESET_TIME_MS = 3000;
+
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private OnShakeListener listener;
+    private long lastShakeTime;
+    private int shakeCount;
+
+    public ShakeDetector(Context context) {
+        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+    }
+
+    public interface OnShakeListener {
+        void onShake();
+    }
+
+    public void setOnShakeListener(OnShakeListener listener) {
+        this.listener = listener;
+    }
+
+    public void start() {
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    public void stop() {
+        sensorManager.unregisterListener(this);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            float x = event.values[0];
+            float y = event.values[1];
+            float z = event.values[2];
+
+            float gX = x / SensorManager.GRAVITY_EARTH;
+            float gY = y / SensorManager.GRAVITY_EARTH;
+            float gZ = z / SensorManager.GRAVITY_EARTH;
+
+            // gForce will be close to 1 when there is no movement.
+            float gForce = (float) Math.sqrt(gX * gX + gY * gY + gZ * gZ);
+
+            if (gForce > SHAKE_THRESHOLD_GRAVITY) {
+                final long now = System.currentTimeMillis();
+                // Ignore shakes too close to each other
+                if (lastShakeTime + SHAKE_SLOP_TIME_MS > now) {
+                    return;
+                }
+
+                // Reset the shake count after a timeout
+                if (lastShakeTime + SHAKE_COUNT_RESET_TIME_MS < now) {
+                    shakeCount = 0;
+                }
+
+                lastShakeTime = now;
+                shakeCount++;
+
+                if (shakeCount >= 2) { // adjust as needed
+                    shakeDetected();
+                    shakeCount = 0;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    private void shakeDetected() {
+        if (listener != null) {
+            listener.onShake();
+        }
+    }
+}
+
+
+
+
+
+
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+
+public class ShakeDetector implements SensorEventListener {
+
+    private static final float SHAKE_THRESHOLD_GRAVITY = 2.7F; // adjust as needed
+    private static final int SHAKE_SLOP_TIME_MS = 500;
+    private static final int SHAKE_COUNT_RESET_TIME_MS = 3000;
+
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private OnShakeListener listener;
+    private long lastShakeTime;
+    private int shakeCount;
+
+    public ShakeDetector(Context context) {
+        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+    }
+
+    public interface OnShakeListener {
+        void onShake();
+    }
+
+    public void setOnShakeListener(OnShakeListener listener) {
+        this.listener = listener;
+    }
+
+    public void start() {
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    public void stop() {
+        sensorManager.unregisterListener(this);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            float x = event.values[0];
+            float y = event.values[1];
+            float z = event.values[2];
+
+            float gX = x / SensorManager.GRAVITY_EARTH;
+            float gY = y / SensorManager.GRAVITY_EARTH;
+            float gZ = z / SensorManager.GRAVITY_EARTH;
+
+            // gForce will be close to 1 when there is no movement.
+            float gForce = (float) Math.sqrt(gX * gX + gY * gY + gZ * gZ);
+
+            if (gForce > SHAKE_THRESHOLD_GRAVITY) {
+                final long now = System.currentTimeMillis();
+                // Ignore shakes too close to each other
+                if (lastShakeTime + SHAKE_SLOP_TIME_MS > now) {
+                    return;
+                }
+
+                // Reset the shake count after a timeout
+                if (lastShakeTime + SHAKE_COUNT_RESET_TIME_MS < now) {
+                    shakeCount = 0;
+                }
+
+                lastShakeTime = now;
+                shakeCount++;
+
+                if (shakeCount >= 2) { // adjust as needed
+                    shakeDetected();
+                    shakeCount = 0;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    private void shakeDetected() {
+        if (listener != null) {
+            listener.onShake();
+        }
+    }
+}
+
+
+
+
+
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognitionListener;
+import android.util.Log;
+import android.os.Bundle;
+import java.util.ArrayList;
+
+public class SpeechRecognitionHelper {
+    private Context context;
+    private SpeechRecognizer speechRecognizer;
+    private ShakeDetector shakeDetector;
+
+    public SpeechRecognitionHelper(Context context) {
+        this.context = context;
+        initSpeechRecognizer();
+        initShakeDetector();
+    }
+
+    private void initSpeechRecognizer() {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context);
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {}
+
+                @Override
+                public void onBeginningOfSpeech() {}
+
+                @Override
+                public void onRmsChanged(float rmsdB) {}
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {}
+
+                @Override
+                public void onEndOfSpeech() {}
+
+                @Override
+                public void onError(int error) {}
+
+                @Override
+                public void onResults(Bundle results) {
+                    ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (matches != null && matches.size() > 0) {
+                        String spokenText = matches.get(0); // Assuming first result is the most relevant
+                        handleVoiceCommand(spokenText);
+                    }
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {}
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {}
+            });
+        }
+    }
+
+    private void initShakeDetector() {
+        shakeDetector = new ShakeDetector(context);
+        shakeDetector.setOnShakeListener(() -> {
+            Log.d("ShakeDetector", "Shake detected, starting speech recognition...");
+            startListening();
+        });
+    }
+
+    public void startListening() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        speechRecognizer.startListening(intent);
+    }
+
+    private void handleVoiceCommand(String command) {
+        // Handle the command, e.g., navigate based on deep linking
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        if ("take me to accounts".equals(command.toLowerCase())) {
+            intent.setData(Uri.parse("myapp://accounts")); // Replace "myapp" with your app's deep linking scheme
+        } else if ("open profile".equals(command.toLowerCase())) {
+            intent.setData(Uri.parse("myapp://profile"));
+        }
+        context.startActivity(intent);
+    }
+
+    public void startShakeDetection() {
+        shakeDetector.start();
+    }
+
+    public void stopListening() {
+        if (speechRecognizer != null) {
+            speechRecognizer.stopListening();
+        }
+    }
+
+    public void stopShakeDetection() {
+        shakeDetector.stop();
+    }
+
+    public void destroy() {
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+        if (shakeDetector != null) {
+            shakeDetector.stop();
+        }
+    }
+}
+
+
+
+
+
+
+package com.yourappname;
+
+import android.content.Context;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
+
+public class ShakeSpeechModule extends ReactContextBaseJavaModule {
+    private ShakeDetectionHelper shakeDetectionHelper;
+    private SpeechRecognitionHelper speechRecognitionHelper;
+
+    public ShakeSpeechModule(ReactApplicationContext reactContext) {
+        super(reactContext);
+        Context context = reactContext.getApplicationContext();
+        shakeDetectionHelper = new ShakeDetectionHelper(context);
+        speechRecognitionHelper = new SpeechRecognitionHelper(context);
+    }
+
+    @Override
+    public String getName() {
+        return "ShakeSpeechModule";
+    }
+
+    @ReactMethod
+    public void startShakeDetection() {
+        shakeDetectionHelper.start();
+    }
+
+    @ReactMethod
+    public void stopShakeDetection() {
+        shakeDetectionHelper.stop();
+    }
+
+    @ReactMethod
+    public void startListening() {
+        speechRecognitionHelper.startListening();
+    }
+
+    @ReactMethod
+    public void stopListening() {
+        speechRecognitionHelper.stopListening();
+    }
+}
+
+
+
+
+
+
+package com.yourappname;
+
+import android.app.Application;
+import com.facebook.react.ReactApplication;
+import com.facebook.react.ReactNativeHost;
+import com.facebook.react.ReactPackage;
+import com.facebook.react.shell.MainReactPackage;
+import com.facebook.soloader.SoLoader;
+import java.util.Arrays;
+import java.util.List;
+
+public class MainApplication extends Application implements ReactApplication {
+
+    private final ReactNativeHost mReactNativeHost = new ReactNativeHost(this) {
+        @Override
+        public boolean getUseDeveloperSupport() {
+            return BuildConfig.DEBUG;
+        }
+
+        @Override
+        protected List<ReactPackage> getPackages() {
+            return Arrays.<ReactPackage>asList(
+                    new MainReactPackage(),
+                    // Add your package here
+                    new ShakeSpeechModulePackage() // Add your ShakeSpeechModulePackage
+            );
+        }
+
+        @Override
+        protected String getJSMainModuleName() {
+            return "index";
+        }
+    };
+
+    @Override
+    public ReactNativeHost getReactNativeHost() {
+        return mReactNativeHost;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        SoLoader.init(this, /* native exopackage */ false);
+    }
+}
+
+
+
+
+
+package com.yourappname;
+
+import com.facebook.react.ReactPackage;
+import com.facebook.react.bridge.NativeModule;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.uimanager.ViewManager;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class ShakeSpeechModulePackage implements ReactPackage {
+
+    @Override
+    public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+        List<NativeModule> modules = new ArrayList<>();
+        modules.add(new ShakeSpeechModule(reactContext));
+        return modules;
+    }
+
+    @Override
+    public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+        return Collections.emptyList();
+    }
+}
+
+
+
+
+
+npm install react-native-sensors
+npm install @react-navigation/native
+npm install @react-navigation/native-stack
+npm install react-native-gesture-handler
+
+
+
+
+import * as React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+
+import HomeScreen from './screens/HomeScreen';
+import AccountsScreen from './screens/AccountsScreen';
+import ProfileScreen from './screens/ProfileScreen';
+
+const Stack = createStackNavigator();
+
+function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Accounts" component={AccountsScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default App;
+
+
+
+
+
+
+
+
+import React, { useEffect } from 'react';
+import { NativeModules, StyleSheet, Text, View, Button } from 'react-native';
+
+const { ShakeSpeechModule } = NativeModules;
+
+const ShakeSpeechComponent = () => {
+  useEffect(() => {
+    // Start shake detection when component mounts
+    ShakeSpeechModule.startShakeDetection();
+
+    // Cleanup: Stop shake detection when component unmounts
+    return () => {
+      ShakeSpeechModule.stopShakeDetection();
+    };
+  }, []);
+
+  const startListening = () => {
+    ShakeSpeechModule.startListening();
+  };
+
+  const stopListening = () => {
+    ShakeSpeechModule.stopListening();
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text>Shake the phone to activate speech recognition.</Text>
+      <Button title="Start Listening" onPress={startListening} />
+      <Button title="Stop Listening" onPress={stopListening} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default ShakeSpeechComponent;
+
+
+
+
+
+
+import * as React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+
+import ShakeSpeechComponent from './components/ShakeSpeechComponent';
+import HomeScreen from './screens/HomeScreen';
+import AccountsScreen from './screens/AccountsScreen';
+import ProfileScreen from './screens/ProfileScreen';
+
+const Stack = createStackNavigator();
+
+function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="ShakeSpeech">
+        <Stack.Screen name="ShakeSpeech" component={ShakeSpeechComponent} />
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Accounts" component={AccountsScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default App;
