@@ -1,0 +1,42 @@
+import android.content.Context;
+import android.hardware.SensorManager;
+import android.util.Log;
+
+public class ShakeDetectionHelper {
+
+    private static final String TAG = "ShakeDetectionHelper";
+
+    private Context context;
+    private ShakeDetector shakeDetector;
+
+    public ShakeDetectionHelper(Context context) {
+        this.context = context;
+        initShakeDetector();
+    }
+
+    private void initShakeDetector() {
+        shakeDetector = new ShakeDetector(context);
+        shakeDetector.setOnShakeListener(new ShakeDetector.OnShakeListener() {
+            @Override
+            public void onShake() {
+                Log.d(TAG, "Shake detected!");
+                // Integrate with SpeechRecognitionHelper or handle the shake event here
+                handleShakeEvent();
+            }
+        });
+    }
+
+    public void startShakeDetection() {
+        shakeDetector.start();
+    }
+
+    public void stopShakeDetection() {
+        shakeDetector.stop();
+    }
+
+    private void handleShakeEvent() {
+        // Example: Start listening for speech commands
+        SpeechRecognitionHelper speechRecognitionHelper = new SpeechRecognitionHelper(context);
+        speechRecognitionHelper.startListening();
+    }
+}
