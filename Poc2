@@ -1,0 +1,118 @@
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.ArrayList;
+import java.util.Locale;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+    private SpeechRecognizer speechRecognizer;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Check if the app has permission to record audio
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO},
+                    REQUEST_RECORD_AUDIO_PERMISSION);
+        } else {
+            setupSpeechRecognizer();
+        }
+    }
+
+    private void setupSpeechRecognizer() {
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override
+            public void onReadyForSpeech(Bundle params) {
+                // Called when the recognizer is ready for speech input
+            }
+
+            @Override
+            public void onBeginningOfSpeech() {
+                // Called when the user has started speaking
+            }
+
+            @Override
+            public void onRmsChanged(float rmsdB) {
+                // Called when the RMS value of the input audio has changed
+            }
+
+            @Override
+            public void onBufferReceived(byte[] buffer) {
+                // Called after the user stops speaking
+            }
+
+            @Override
+            public void onEndOfSpeech() {
+                // Called after the recognizer has stopped listening
+            }
+
+            @Override
+            public void onError(int error) {
+                // Called when there is an error in recognition
+                Toast.makeText(MainActivity.this, "Error occurred in recognition", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onResults(Bundle results) {
+                // Called when recognition results are ready
+                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) {
+                    String text = matches.get(0); // Get the first result
+                    Toast.makeText(MainActivity.this, "You said: " + text, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                // Called when partial recognition results are available
+            }
+
+            @Override
+            public void onEvent(int eventType, Bundle params) {
+                // Reserved for adding future events
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                setupSpeechRecognizer();
+            } else {
+                Toast.makeText(this, "Permission to record audio denied", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // You can start listening for speech by calling this method
+    private void startListening() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        speechRecognizer.startListening(intent);
+    }
+}
