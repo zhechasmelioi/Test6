@@ -1,0 +1,139 @@
+BiometricPrompt biometricPrompt = new BiometricPrompt(this,
+    ContextCompat.getMainExecutor(this),
+    new BiometricPrompt.AuthenticationCallback() {
+        @Override
+        public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+            super.onAuthenticationError(errorCode, errString);
+            // Handle authentication error
+        }
+
+        @Override
+        public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+            super.onAuthenticationSucceeded(result);
+            // Handle authentication success
+            String userId = getUserIdFromBiometricData(result);
+            proceedWithLogin(userId);
+        }
+
+        @Override
+        public void onAuthenticationFailed() {
+            super.onAuthenticationFailed();
+            // Handle authentication failure
+        }
+    });
+
+BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+    .setTitle("Biometric login for My App")
+    .setSubtitle("Log in using your biometric credential")
+    .setNegativeButtonText("Use account password")
+    .build();
+
+
+
+
+
+
+// Encrypt user ID with a key stored in the Keystore
+private void saveUserIdInKeystore(String userId) {
+    try {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+
+        KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        keyGenerator.init(
+            new KeyGenParameterSpec.Builder(userId,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build());
+        SecretKey secretKey = keyGenerator.generateKey();
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        byte[] encryptionIv = cipher.getIV();
+        byte[] encryptedUserId = cipher.doFinal(userId.getBytes("UTF-8"));
+
+        SharedPreferences sharedPreferences = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(userId + "_iv", Base64.encodeToString(encryptionIv, Base64.DEFAULT));
+        editor.putString(userId + "_encryptedUserId", Base64.encodeToString(encryptedUserId, Base64.DEFAULT));
+        editor.apply();
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+
+
+
+
+
+
+private String getUserIdFromBiometricData(BiometricPrompt.AuthenticationResult result, String userId) {
+    try {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+
+        SecretKey secretKey = ((KeyStore.SecretKeyEntry) keyStore.getEntry(userId, null)).getSecretKey();
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+        SharedPreferences sharedPreferences = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+        String encryptionIv = sharedPreferences.getString(userId + "_iv", null);
+        String encryptedUserId = sharedPreferences.getString(userId + "_encryptedUserId", null);
+
+        if (encryptionIv != null && encryptedUserId != null) {
+            byte[] ivBytes = Base64.decode(encryptionIv, Base64.DEFAULT);
+            byte[] encryptedBytes = Base64.decode(encryptedUserId, Base64.DEFAULT);
+
+            GCMParameterSpec spec = new GCMParameterSpec(128, ivBytes);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+
+            return new String(decryptedBytes, "UTF-8");
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    return null;
+}
+
+private void proceedWithLogin(String userId) {
+    if (userId != null) {
+        // Proceed with user-specific login logic
+    } else {
+        // Handle error: user ID not found
+    }
+}
+
+
+
+
+
+
+// Assuming a simple EditText for username input and a button to trigger biometric authentication
+EditText usernameEditText = findViewById(R.id.usernameEditText);
+Button loginButton = findViewById(R.id.loginButton);
+
+loginButton.setOnClickListener(new View.OnClickListener() {
+    @Override
+    public void onClick(View v) {
+        String username = usernameEditText.getText().toString().trim();
+        if (!username.isEmpty()) {
+            authenticateUser(username);
+        } else {
+            // Handle empty username
+        }
+    }
+});
+
+private void authenticateUser(String username) {
+    // Start biometric authentication with the username
+    biometricPrompt.authenticate(promptInfo);
+}
+
+
+
+
+
+
+biometricPrompt.authenticate(promptInfo, new BiometricPrompt.CryptoObject(cipher));
