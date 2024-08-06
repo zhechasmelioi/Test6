@@ -1,0 +1,130 @@
+package com.mycustommodule;
+
+import android.os.Handler;
+import android.os.Looper;
+
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.Promise;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+
+public class MyCustomModule extends ReactContextBaseJavaModule {
+
+    private static ReactContext reactContext;
+
+    MyCustomModule(ReactContext context) {
+        super(context);
+        reactContext = context;
+    }
+
+    @Override
+    public String getName() {
+        return "MyCustomModule";
+    }
+
+    // Synchronous method
+    @ReactMethod
+    public void synchronousMethod(Callback callback) {
+        String result = "Hello from synchronous method";
+        callback.invoke(result);
+    }
+
+    // Asynchronous method
+    @ReactMethod
+    public void asynchronousMethod(Promise promise) {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            promise.resolve("Hello from asynchronous method");
+        }, 2000); // 2 seconds delay
+    }
+
+    // Event Emitter
+    @ReactMethod
+    public void sendEvent(String eventName, String eventData) {
+        if (reactContext != null) {
+            reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit(eventName, eventData);
+        }
+    }
+}
+
+
+
+
+
+
+import { NativeEventEmitter, NativeModules } from 'react-native';
+
+const { MyCustomModule } = NativeModules;
+const myCustomModuleEvents = new NativeEventEmitter(MyCustomModule);
+
+export default {
+  synchronousMethod: (callback) => {
+    MyCustomModule.synchronousMethod((result) => {
+      callback(result);
+    });
+  },
+
+  asynchronousMethod: () => {
+    return MyCustomModule.asynchronousMethod();
+  },
+
+  sendEvent: (eventName, eventData) => {
+    MyCustomModule.sendEvent(eventName, eventData);
+  },
+
+  addEventListener: (eventName, callback) => {
+    const subscription = myCustomModuleEvents.addListener(eventName, callback);
+    return () => subscription.remove();
+  }
+};
+
+
+
+
+
+
+import React, { useEffect } from 'react';
+import { View, Button, Text } from 'react-native';
+import MyCustomModule from 'my-custom-module';
+
+const App = () => {
+  useEffect(() => {
+    const subscription = MyCustomModule.addEventListener('MyCustomEvent', (data) => {
+      console.log(data);
+    });
+
+    return () => subscription();
+  }, []);
+
+  const handleSynchronousCall = () => {
+    MyCustomModule.synchronousMethod((result) => {
+      console.log(result);
+    });
+  };
+
+  const handleAsynchronousCall = async () => {
+    try {
+      const result = await MyCustomModule.asynchronousMethod();
+      console.log(result);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSendEvent = () => {
+    MyCustomModule.sendEvent('MyCustomEvent', 'Hello from JS!');
+  };
+
+  return (
+    <View>
+      <Button title="Call Synchronous Method" onPress={handleSynchronousCall} />
+      <Button title="Call Asynchronous Method" onPress={handleAsynchronousCall} />
+      <Button title="Send Event" onPress={handleSendEvent} />
+    </View>
+  );
+};
+
+export default App;
